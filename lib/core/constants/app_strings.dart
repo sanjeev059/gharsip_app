@@ -5,10 +5,9 @@ class AppStrings {
 
   static const serviceAreas = ['Varthur', 'Balagere', 'Whitefield', 'Marathahalli'];
 
-  static const whatsappNumber = '919999999999';
+  static const whatsappNumber = '916305468471';
 
-  // Set this to your phone number (+91XXXXXXXXXX) to get admin role on login
-  static const adminPhone = '+91XXXXXXXXXX';
+  static const adminPhone = '+916305468471';
 
   static const Map<String, int> tshirtPrices = {
     'Regular': 399,
