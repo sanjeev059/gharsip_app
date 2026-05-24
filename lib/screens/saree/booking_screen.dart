@@ -5,6 +5,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/models/booking_model.dart';
 import '../../core/services/firestore_service.dart';
 import '../../providers/auth_provider.dart';
+import '../shared/location_picker_screen.dart';
 
 class BookingScreen extends StatefulWidget {
   final String? preselectedService;
@@ -23,12 +24,9 @@ class _BookingScreenState extends State<BookingScreen> {
   // Step 2: Schedule
   DateTime? _pickupDate;
   String _timeSlot = '10am - 12pm';
-  String _address = '';
-  String _pincode = '';
   String _notes = '';
+  PickedAddress? _pickupAddress;
 
-  final _addressCtrl = TextEditingController();
-  final _pincodeCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
 
   bool _loading = false;
@@ -46,10 +44,16 @@ class _BookingScreenState extends State<BookingScreen> {
     }
   }
 
+  Future<void> _pickLocation() async {
+    final result = await Navigator.push<PickedAddress>(
+      context,
+      MaterialPageRoute(builder: (_) => LocationPickerScreen(initial: _pickupAddress)),
+    );
+    if (result != null) setState(() => _pickupAddress = result);
+  }
+
   @override
   void dispose() {
-    _addressCtrl.dispose();
-    _pincodeCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -66,8 +70,8 @@ class _BookingScreenState extends State<BookingScreen> {
         services: _selectedServices.toList(),
         pickupDate: _pickupDate!,
         timeSlot: _timeSlot,
-        address: _addressCtrl.text.trim(),
-        pincode: _pincodeCtrl.text.trim(),
+        address: _pickupAddress?.display ?? '',
+        pincode: _pickupAddress?.pincode ?? '',
         notes: _notesCtrl.text.trim(),
       );
       setState(() { _bookingId = id; _step = 3; });
@@ -84,9 +88,7 @@ class _BookingScreenState extends State<BookingScreen> {
 
   bool get _canProceedStep0 => _selectedServices.isNotEmpty;
   bool get _canProceedStep1 =>
-      _pickupDate != null &&
-      _addressCtrl.text.trim().isNotEmpty &&
-      _pincodeCtrl.text.trim().length == 6;
+      _pickupDate != null && _pickupAddress != null;
 
   @override
   Widget build(BuildContext context) {
@@ -130,9 +132,9 @@ class _BookingScreenState extends State<BookingScreen> {
               pickupDate: _pickupDate,
               timeSlot: _timeSlot,
               timeSlots: _timeSlots,
-              addressCtrl: _addressCtrl,
-              pincodeCtrl: _pincodeCtrl,
+              pickupAddress: _pickupAddress,
               notesCtrl: _notesCtrl,
+              onPickLocation: _pickLocation,
               onDatePick: () async {
                 final d = await showDatePicker(
                   context: context,
@@ -153,8 +155,8 @@ class _BookingScreenState extends State<BookingScreen> {
               services: _selectedServices,
               pickupDate: _pickupDate!,
               timeSlot: _timeSlot,
-              address: _addressCtrl.text,
-              pincode: _pincodeCtrl.text,
+              address: _pickupAddress?.display ?? '',
+              pincode: _pickupAddress?.pincode ?? '',
               notes: _notesCtrl.text,
             ),
           ),
@@ -296,14 +298,16 @@ class _ScheduleStep extends StatelessWidget {
   final DateTime? pickupDate;
   final String timeSlot;
   final List<String> timeSlots;
-  final TextEditingController addressCtrl, pincodeCtrl, notesCtrl;
+  final PickedAddress? pickupAddress;
+  final TextEditingController notesCtrl;
   final VoidCallback onDatePick;
+  final VoidCallback onPickLocation;
   final ValueChanged<String> onTimeSlot;
 
   const _ScheduleStep({
     required this.pickupDate, required this.timeSlot, required this.timeSlots,
-    required this.addressCtrl, required this.pincodeCtrl, required this.notesCtrl,
-    required this.onDatePick, required this.onTimeSlot,
+    required this.pickupAddress, required this.notesCtrl,
+    required this.onDatePick, required this.onPickLocation, required this.onTimeSlot,
   });
 
   @override
@@ -371,19 +375,47 @@ class _ScheduleStep extends StatelessWidget {
         const SizedBox(height: 16),
 
         _Label('Pickup Address *'),
-        TextField(
-          controller: addressCtrl,
-          maxLines: 2,
-          decoration: _inputDeco('Door no., Street, Area, City'),
-        ),
-        const SizedBox(height: 12),
-
-        _Label('PIN Code *'),
-        TextField(
-          controller: pincodeCtrl,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          decoration: _inputDeco('560XXX').copyWith(counterText: ''),
+        GestureDetector(
+          onTap: onPickLocation,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: pickupAddress != null ? AppColors.primary : AppColors.border,
+                width: pickupAddress != null ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.location_on_outlined,
+                  color: pickupAddress != null ? AppColors.primary : AppColors.textMuted, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: pickupAddress == null
+                      ? const Text('Tap to select pickup address',
+                          style: TextStyle(fontSize: 13, color: AppColors.textMuted,
+                              fontFamily: 'Poppins'))
+                      : Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(pickupAddress!.display,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary, fontFamily: 'Poppins'),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                          if (pickupAddress!.pincode.isNotEmpty)
+                            Text('PIN: ${pickupAddress!.pincode}',
+                              style: const TextStyle(fontSize: 11,
+                                  color: AppColors.textSecond, fontFamily: 'Poppins')),
+                        ]),
+                ),
+                if (pickupAddress != null) ...[
+                  const SizedBox(width: 8),
+                  const Text('Change', style: TextStyle(fontSize: 12,
+                      color: AppColors.primary, fontWeight: FontWeight.w600, fontFamily: 'Poppins')),
+                ],
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 12),
 

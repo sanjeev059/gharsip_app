@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_strings.dart';
 import '../../core/models/booking_model.dart';
 import '../../core/services/api_service.dart';
 
@@ -221,8 +223,7 @@ class _AdminBookingCardState extends State<_AdminBookingCard> {
                 const SizedBox(height: 6),
                 Text(b.name,
                     style: const TextStyle(fontSize: 13, color: AppColors.textSecond, fontFamily: 'Poppins')),
-                Text(b.phone,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontFamily: 'Poppins')),
+                _ContactRow(name: b.name, phone: b.phone),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6, runSpacing: 4,
@@ -352,6 +353,48 @@ class _StatusBadge extends StatelessWidget {
       child: Text(label,
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
               color: _fg[status] ?? AppColors.textSecond, fontFamily: 'Poppins')),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  final String name, phone;
+  const _ContactRow({required this.name, required this.phone});
+
+  void _call() => launchUrl(Uri.parse('tel:$phone'), mode: LaunchMode.externalApplication);
+  void _whatsapp() => launchUrl(
+    Uri.parse('https://wa.me/${phone.replaceAll(RegExp(r'[^0-9]'), '')}?text=Hi+$name%2C+regarding+your+Gharsip+saree+booking'),
+    mode: LaunchMode.externalApplication,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(phone,
+            style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontFamily: 'Poppins')),
+        ),
+        GestureDetector(
+          onTap: _call,
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE3F2FD), borderRadius: BorderRadius.circular(6)),
+            child: const Icon(Icons.call, size: 15, color: Color(0xFF1565C0)),
+          ),
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: _whatsapp,
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(6)),
+            child: const Icon(Icons.chat, size: 15, color: Color(0xFF25D366)),
+          ),
+        ),
+      ],
     );
   }
 }

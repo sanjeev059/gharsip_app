@@ -34,6 +34,11 @@ dependencies:
   # Device & utils
   image_picker: ^1.1.2
   url_launcher: ^6.3.0
+
+  # Location
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.0
+  geolocator: ^13.0.0
   share_plus: ^10.0.0
   flutter_local_notifications: ^17.2.3
   intl: ^0.19.0
