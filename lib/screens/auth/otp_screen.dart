@@ -19,14 +19,14 @@ class _OtpScreenState extends State<OtpScreen> {
   Timer? _countdown;
   bool _loading = false;
   String? _error;
-  late String _phone;
+  late String _email;
 
   @override
   void initState() {
     super.initState();
     _startTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _phone = ModalRoute.of(context)!.settings.arguments as String;
+      _email = ModalRoute.of(context)!.settings.arguments as String;
       _nodes[0].requestFocus();
     });
   }
@@ -64,7 +64,7 @@ class _OtpScreenState extends State<OtpScreen> {
     _startTimer();
     final auth = context.read<AuthProvider>();
     await auth.sendOtp(
-      phone: '+91$_phone',
+      email: _email,
       onSent: () {},
       onError: (msg) { if (mounted) setState(() => _error = msg); },
     );
@@ -86,36 +86,37 @@ class _OtpScreenState extends State<OtpScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: AppColors.textPrimary,
-        title: const Text('Verify OTP', style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700)),
+        title: const Text('Verify OTP',
+          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700)),
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Enter OTP',
+            const Text('Check your email',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary, fontFamily: 'Poppins')),
             const SizedBox(height: 8),
-            Text('We sent a 6-digit code to +91 $_phone',
+            Text('We sent a 6-digit code to $_email',
               style: const TextStyle(fontSize: 14, color: AppColors.textSecond, fontFamily: 'Poppins')),
             const SizedBox(height: 36),
 
-            // OTP boxes
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(6, (i) => SizedBox(
-                width: 48,
-                height: 56,
+                width: 48, height: 56,
                 child: TextField(
                   controller: _ctrls[i],
                   focusNode: _nodes[i],
                   textAlign: TextAlign.center,
+                  textAlignVertical: TextAlignVertical.center,
                   keyboardType: TextInputType.number,
                   maxLength: 1,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
                     counterText: '',
+                    contentPadding: EdgeInsets.zero,
                     filled: true,
                     fillColor: AppColors.background,
                     border: OutlineInputBorder(
@@ -127,14 +128,16 @@ class _OtpScreenState extends State<OtpScreen> {
                       borderSide: const BorderSide(color: AppColors.primary, width: 2),
                     ),
                   ),
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   onChanged: (v) {
                     if (v.isNotEmpty && i < 5) {
                       _nodes[i + 1].requestFocus();
                     } else if (v.isEmpty && i > 0) {
                       _nodes[i - 1].requestFocus();
                     }
-                    if (_otp.length == 6) _verify();
+                    if (_otp.length == 6) {
+                      Future.delayed(const Duration(milliseconds: 100), _verify);
+                    }
                   },
                 ),
               )),

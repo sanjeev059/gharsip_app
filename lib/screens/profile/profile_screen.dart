@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_strings.dart';
 import '../../providers/auth_provider.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -31,10 +33,22 @@ class ProfileScreen extends StatelessWidget {
                   _MenuItem(Icons.content_cut_outlined, 'Saree Bookings', () => Navigator.pushNamed(context, '/orders')),
                 ]),
                 _MenuSection(title: 'Support', items: [
-                  _MenuItem(Icons.chat_outlined, 'WhatsApp Support', () {}),
-                  _MenuItem(Icons.help_outline, 'FAQ', () {}),
-                  _MenuItem(Icons.policy_outlined, 'Privacy Policy', () {}),
-                  _MenuItem(Icons.description_outlined, 'Terms of Service', () {}),
+                  _MenuItem(Icons.chat_outlined, 'WhatsApp Support', () => launchUrl(
+                    Uri.parse('https://wa.me/${AppStrings.whatsappNumber}?text=Hi%2C+I+need+help+with+Gharsip'),
+                    mode: LaunchMode.externalApplication,
+                  )),
+                  _MenuItem(Icons.help_outline, 'FAQ', () => launchUrl(
+                    Uri.parse('https://gharsip.in/#faq'),
+                    mode: LaunchMode.externalApplication,
+                  )),
+                  _MenuItem(Icons.policy_outlined, 'Privacy Policy', () => launchUrl(
+                    Uri.parse('https://gharsip.in/privacy-policy'),
+                    mode: LaunchMode.externalApplication,
+                  )),
+                  _MenuItem(Icons.description_outlined, 'Terms of Service', () => launchUrl(
+                    Uri.parse('https://gharsip.in/terms'),
+                    mode: LaunchMode.externalApplication,
+                  )),
                 ]),
                 _MenuSection(title: 'App', items: [
                   _MenuItem(Icons.info_outline, 'App Version', () {},

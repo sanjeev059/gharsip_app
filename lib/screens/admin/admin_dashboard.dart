@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/services/firestore_service.dart';
+import '../../core/services/api_service.dart';
 import '../../providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'admin_orders.dart';
@@ -96,7 +96,7 @@ class _StatsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Map<String, int>>(
-      future: FirestoreService().todayStats(),
+      future: ApiService.getAdminStats(),
       builder: (_, snap) {
         final stats = snap.data ?? {};
         return GridView.count(
@@ -210,7 +210,12 @@ class _QuickActions extends StatelessWidget {
           color: const Color(0xFF6A1B9A),
           title: 'Customers',
           subtitle: 'View registered customers',
-          onTap: () {},
+          onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Customers panel coming soon', style: TextStyle(fontFamily: 'Poppins')),
+              behavior: SnackBarBehavior.floating,
+            ),
+          ),
         ),
       ],
     );

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
@@ -12,21 +11,21 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   bool _loading = false;
   String? _error;
 
   Future<void> _sendOtp() async {
-    final phone = _phoneCtrl.text.trim();
-    if (phone.length != 10) {
-      setState(() => _error = 'Enter a valid 10-digit mobile number');
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+      setState(() => _error = 'Enter a valid email address');
       return;
     }
     setState(() { _loading = true; _error = null; });
     await context.read<AuthProvider>().sendOtp(
-      phone: '+91$phone',
+      email: email,
       onSent: () {
-        if (mounted) Navigator.pushNamed(context, '/otp', arguments: phone);
+        if (mounted) Navigator.pushNamed(context, '/otp', arguments: email);
         setState(() => _loading = false);
       },
       onError: (msg) {
@@ -37,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
@@ -52,7 +51,6 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 40),
-              // Logo
               Container(
                 width: 80, height: 80,
                 decoration: BoxDecoration(
@@ -62,42 +60,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: const Center(
                   child: Text('G',
                     style: TextStyle(fontSize: 42, fontWeight: FontWeight.w900,
-                        color: Colors.white, fontFamily: 'Poppins'),
-                  ),
+                        color: Colors.white, fontFamily: 'Poppins')),
                 ),
               ),
               const SizedBox(height: 20),
               const Text('Gharsip',
                 style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary, fontFamily: 'Poppins'),
-              ),
+                    color: AppColors.textPrimary, fontFamily: 'Poppins')),
               const SizedBox(height: 6),
-              Text('Welcome back! Sign in to continue.',
-                style: TextStyle(fontSize: 14, color: AppColors.textSecond,
-                    fontFamily: 'Poppins'),
-              ),
+              const Text('Welcome! Sign in to continue.',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecond, fontFamily: 'Poppins')),
               const SizedBox(height: 48),
 
-              // Phone input
-              Align(
+              const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Mobile Number',
+                child: Text('Email Address',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                      color: AppColors.textSecond, fontFamily: 'Poppins'),
-                ),
+                      color: AppColors.textSecond, fontFamily: 'Poppins')),
               ),
               const SizedBox(height: 8),
               TextField(
-                controller: _phoneCtrl,
-                keyboardType: TextInputType.phone,
-                maxLength: 10,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
                 decoration: InputDecoration(
-                  counterText: '',
-                  prefixText: '+91  ',
-                  prefixStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary),
-                  hintText: '98XXXXXXXX',
+                  prefixIcon: const Icon(Icons.email_outlined, color: AppColors.textMuted),
+                  hintText: 'you@example.com',
                   hintStyle: TextStyle(color: AppColors.textMuted),
                   filled: true,
                   fillColor: AppColors.background,
@@ -126,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Icon(Icons.error_outline, size: 16, color: AppColors.error),
                     const SizedBox(width: 8),
                     Expanded(child: Text(_error!,
-                      style: const TextStyle(fontSize: 13, color: AppColors.error))),
+                      style: const TextStyle(fontSize: 13, color: AppColors.error, fontFamily: 'Poppins'))),
                   ]),
                 ),
               ],
@@ -146,14 +134,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: _loading
                       ? const SizedBox(width: 22, height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                      : const Text('Send OTP',
+                      : const Text('Send OTP to Email',
                           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Poppins')),
                 ),
               ),
 
               const SizedBox(height: 32),
-              Text(
-                'By continuing you agree to our Terms of Service and Privacy Policy.',
+              const Text(
+                'We will send a 6-digit verification code to your email.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.textMuted, fontFamily: 'Poppins', height: 1.5),
               ),

@@ -27,6 +27,22 @@ class SareeBooking {
     required this.createdAt,
   });
 
+  // Parses backend MongoDB booking format
+  factory SareeBooking.fromBackend(Map<String, dynamic> m) => SareeBooking(
+        bookingId: m['id'] ?? '',
+        userId: m['userId'] ?? m['user_id'] ?? '',
+        name: m['name'] ?? '',
+        phone: m['phone'] ?? '',
+        services: List<String>.from(m['services'] ?? []),
+        pickupDate: DateTime.tryParse(m['pickupDate'] ?? m['pickup_date'] ?? '') ?? DateTime.now(),
+        timeSlot: m['timeSlot'] ?? m['time_slot'] ?? '',
+        address: m['address'] ?? '',
+        pincode: m['pincode'] ?? '',
+        notes: m['notes'] ?? '',
+        status: m['status'] ?? 'new',
+        createdAt: DateTime.tryParse(m['createdAt'] ?? m['created_at'] ?? '') ?? DateTime.now(),
+      );
+
   factory SareeBooking.fromMap(Map<String, dynamic> m, String id) => SareeBooking(
         bookingId: id,
         userId: m['user_id'] ?? '',

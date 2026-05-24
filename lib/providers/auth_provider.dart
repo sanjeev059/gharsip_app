@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../core/models/user_model.dart';
 import '../core/services/auth_service.dart';
 
@@ -8,7 +7,7 @@ class AuthProvider extends ChangeNotifier {
 
   UserModel? _user;
   bool _loading = true;
-  String? _verificationId;
+  String? _pendingEmail;
 
   UserModel? get user => _user;
   bool get loading => _loading;
@@ -16,79 +15,58 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin => _user?.isAdmin ?? false;
 
   AuthProvider() {
-    _service.authState.listen(_onAuthStateChanged);
+    _init();
   }
 
-  Future<void> _onAuthStateChanged(User? firebaseUser) async {
-    if (firebaseUser == null) {
-      _user = null;
-    } else {
-      _user = await _service.getUser(firebaseUser.uid);
-    }
+  Future<void> _init() async {
+    _user = await _service.getLoggedInUser();
     _loading = false;
     notifyListeners();
   }
 
   Future<void> sendOtp({
-    required String phone,
+    required String email,
     required void Function() onSent,
     required void Function(String) onError,
   }) async {
-    await _service.sendOtp(
-      phone: phone,
-      onAutoVerified: (credential) async {
-        final u = await _service.verifyOtp(
-          verificationId: credential.verificationId ?? '',
-          smsCode: credential.smsCode ?? '',
-        );
-        _user = u;
-        notifyListeners();
-      },
-      onCodeSent: (verId, _) {
-        _verificationId = verId;
-        onSent();
-      },
-      onFailed: (e) => onError(e.message ?? 'OTP failed'),
-    );
+    _pendingEmail = email.trim().toLowerCase();
+    await _service.sendOtp(email: _pendingEmail!, onSent: onSent, onError: onError);
   }
 
   Future<bool> verifyOtp({
     required String otp,
     required void Function(String) onError,
   }) async {
-    if (_verificationId == null) {
+    if (_pendingEmail == null) {
       onError('Please request OTP first');
       return false;
     }
     try {
-      final u = await _service.verifyOtp(
-        verificationId: _verificationId!,
-        smsCode: otp,
-      );
+      final u = await _service.verifyOtp(email: _pendingEmail!, otp: otp);
       if (u == null) {
-        onError('Verification failed');
+        onError('Invalid or expired OTP. Please try again.');
         return false;
       }
       _user = u;
       notifyListeners();
       return true;
     } catch (e) {
-      onError('Invalid OTP. Please try again.');
+      onError('Verification failed: ${e.toString()}');
       return false;
     }
   }
 
-  Future<void> updateProfile({String? name, String? email}) async {
+  Future<void> updateProfile({String? name, String? phone}) async {
     if (_user == null) return;
     final data = <String, dynamic>{};
     if (name != null) data['name'] = name;
-    if (email != null) data['email'] = email;
+    if (phone != null) data['phone'] = phone;
     await _service.updateUser(_user!.uid, data);
     _user = UserModel(
       uid: _user!.uid,
       name: name ?? _user!.name,
-      phone: _user!.phone,
-      email: email ?? _user!.email,
+      phone: phone ?? _user!.phone,
+      email: _user!.email,
       role: _user!.role,
       createdAt: _user!.createdAt,
     );
@@ -98,6 +76,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     await _service.signOut();
     _user = null;
+    _pendingEmail = null;
     notifyListeners();
   }
 }

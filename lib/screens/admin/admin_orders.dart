@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/order_model.dart';
-import '../../core/services/firestore_service.dart';
+import '../../core/services/api_service.dart';
 
 class AdminOrders extends StatefulWidget {
   const AdminOrders({super.key});
@@ -12,6 +12,9 @@ class AdminOrders extends StatefulWidget {
 }
 
 class _AdminOrdersState extends State<AdminOrders> {
+  List<TshirtOrder> _orders = [];
+  bool _loading = true;
+  String? _error;
   String _statusFilter = 'all';
 
   static const _statuses = [
@@ -26,6 +29,26 @@ class _AdminOrdersState extends State<AdminOrders> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final orders = await ApiService.getAllOrders();
+      if (mounted) setState(() { _orders = orders; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  List<TshirtOrder> get _filtered => _statusFilter == 'all'
+      ? _orders
+      : _orders.where((o) => o.status == _statusFilter).toList();
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -33,37 +56,46 @@ class _AdminOrdersState extends State<AdminOrders> {
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         title: const Text('T-Shirt Orders',
-          style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700)),
+            style: TextStyle(fontFamily: 'Poppins', fontWeight: FontWeight.w700)),
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+        ],
       ),
       body: Column(
         children: [
-          _FilterBar(selected: _statusFilter, statuses: _statuses,
-            onSelect: (s) => setState(() => _statusFilter = s)),
+          _FilterBar(
+            selected: _statusFilter,
+            statuses: _statuses,
+            onSelect: (s) => setState(() => _statusFilter = s),
+          ),
           Expanded(
-            child: StreamBuilder<List<TshirtOrder>>(
-              stream: FirestoreService().allOrders(),
-              builder: (_, snap) {
-                if (snap.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-                }
-                final all = snap.data ?? [];
-                final filtered = _statusFilter == 'all'
-                    ? all
-                    : all.where((o) => o.status == _statusFilter).toList();
-
-                if (filtered.isEmpty) {
-                  return const Center(
-                    child: Text('No orders', style: TextStyle(color: AppColors.textMuted, fontFamily: 'Poppins')));
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (_, i) => _AdminOrderCard(order: filtered[i]),
-                );
-              },
-            ),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                : _error != null
+                    ? Center(child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_error!, style: const TextStyle(color: AppColors.error, fontFamily: 'Poppins')),
+                          const SizedBox(height: 12),
+                          ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                        ],
+                      ))
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        color: AppColors.primary,
+                        child: _filtered.isEmpty
+                            ? const Center(child: Text('No orders',
+                                style: TextStyle(color: AppColors.textMuted, fontFamily: 'Poppins')))
+                            : ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                itemBuilder: (_, i) => _AdminOrderCard(
+                                  order: _filtered[i],
+                                  onStatusChanged: _load,
+                                ),
+                              ),
+                      ),
           ),
         ],
       ),
@@ -75,7 +107,6 @@ class _FilterBar extends StatelessWidget {
   final String selected;
   final List<(String, String)> statuses;
   final ValueChanged<String> onSelect;
-
   const _FilterBar({required this.selected, required this.statuses, required this.onSelect});
 
   @override
@@ -101,10 +132,10 @@ class _FilterBar extends StatelessWidget {
                 border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
               ),
               child: Text(label,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textSecond,
-                  fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Poppins',
-                )),
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : AppColors.textSecond,
+                    fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Poppins',
+                  )),
             ),
           );
         },
@@ -115,7 +146,8 @@ class _FilterBar extends StatelessWidget {
 
 class _AdminOrderCard extends StatefulWidget {
   final TshirtOrder order;
-  const _AdminOrderCard({required this.order});
+  final VoidCallback onStatusChanged;
+  const _AdminOrderCard({required this.order, required this.onStatusChanged});
 
   @override
   State<_AdminOrderCard> createState() => _AdminOrderCardState();
@@ -140,35 +172,27 @@ class _AdminOrderCardState extends State<_AdminOrderCard> {
     'out_for_delivery': 'Mark Delivered',
   };
 
-  Future<void> _advance() async {
-    final next = _nextStatus[widget.order.status];
-    if (next == null) return;
+  Future<void> _updateStatus(String status) async {
     setState(() => _updating = true);
     try {
-      await FirestoreService().updateOrderStatus(widget.order.orderId, next);
+      await ApiService.updateOrderStatus(widget.order.orderId, status);
+      widget.onStatusChanged();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
       }
     } finally {
-      setState(() => _updating = false);
-    }
-  }
-
-  Future<void> _cancel() async {
-    setState(() => _updating = true);
-    try {
-      await FirestoreService().updateOrderStatus(widget.order.orderId, 'cancelled');
-    } finally {
-      setState(() => _updating = false);
+      if (mounted) setState(() => _updating = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
+    final nextStatus = _nextStatus[order.status];
     final nextLabel = _nextLabel[order.status];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -186,37 +210,39 @@ class _AdminOrderCardState extends State<_AdminOrderCard> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(order.orderId,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary, fontFamily: 'Poppins')),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary, fontFamily: 'Poppins')),
                     _StatusBadge(status: order.status, label: order.statusLabel),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(order.name,
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecond, fontFamily: 'Poppins')),
+                    style: const TextStyle(fontSize: 13, color: AppColors.textSecond, fontFamily: 'Poppins')),
                 Text(order.phone,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontFamily: 'Poppins')),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textMuted, fontFamily: 'Poppins')),
                 const SizedBox(height: 4),
                 Text('${order.items.length} item(s) · ₹${order.total}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary, fontFamily: 'Poppins')),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary, fontFamily: 'Poppins')),
+                if (order.address.isNotEmpty)
+                  Text(order.address,
+                      style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'Poppins')),
                 Text(DateFormat('d MMM yyyy, h:mm a').format(order.createdAt),
-                  style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'Poppins')),
+                    style: const TextStyle(fontSize: 11, color: AppColors.textMuted, fontFamily: 'Poppins')),
               ],
             ),
           ),
-          if (nextLabel != null || order.status != 'cancelled')
+          if (order.status != 'delivered' && order.status != 'cancelled')
             Container(
               decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppColors.border)),
-              ),
+                  border: Border(top: BorderSide(color: AppColors.border))),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
                 children: [
                   if (nextLabel != null)
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _updating ? null : _advance,
+                        onPressed: _updating ? null : () => _updateStatus(nextStatus!),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -231,19 +257,18 @@ class _AdminOrderCardState extends State<_AdminOrderCard> {
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Poppins')),
                       ),
                     ),
-                  if (nextLabel != null && order.status != 'cancelled') const SizedBox(width: 8),
-                  if (order.status != 'delivered' && order.status != 'cancelled')
-                    OutlinedButton(
-                      onPressed: _updating ? null : _cancel,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      ),
-                      child: const Text('Cancel',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Poppins')),
+                  if (nextLabel != null) const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: _updating ? null : () => _updateStatus('cancelled'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: const BorderSide(color: AppColors.error),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                     ),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Poppins')),
+                  ),
                 ],
               ),
             ),
@@ -258,22 +283,15 @@ class _StatusBadge extends StatelessWidget {
   const _StatusBadge({required this.status, required this.label});
 
   static const _bg = {
-    'pending': Color(0xFFFFF3CD),
-    'printing': Color(0xFFCCE5FF),
-    'qc': Color(0xFFD4EDDA),
-    'shipped': Color(0xFFD1ECF1),
-    'out_for_delivery': Color(0xFFCCE5FF),
-    'delivered': Color(0xFFD4EDDA),
+    'pending': Color(0xFFFFF3CD), 'printing': Color(0xFFCCE5FF),
+    'qc': Color(0xFFD4EDDA), 'shipped': Color(0xFFD1ECF1),
+    'out_for_delivery': Color(0xFFCCE5FF), 'delivered': Color(0xFFD4EDDA),
     'cancelled': Color(0xFFF8D7DA),
   };
-
   static const _fg = {
-    'pending': Color(0xFF856404),
-    'printing': Color(0xFF004085),
-    'qc': Color(0xFF155724),
-    'shipped': Color(0xFF0C5460),
-    'out_for_delivery': Color(0xFF004085),
-    'delivered': Color(0xFF155724),
+    'pending': Color(0xFF856404), 'printing': Color(0xFF004085),
+    'qc': Color(0xFF155724), 'shipped': Color(0xFF0C5460),
+    'out_for_delivery': Color(0xFF004085), 'delivered': Color(0xFF155724),
     'cancelled': Color(0xFF721C24),
   };
 
@@ -286,8 +304,8 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-            color: _fg[status] ?? AppColors.textSecond, fontFamily: 'Poppins')),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+              color: _fg[status] ?? AppColors.textSecond, fontFamily: 'Poppins')),
     );
   }
 }
